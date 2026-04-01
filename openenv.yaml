@@ -1,0 +1,54 @@
+spec_version: 1
+name: inboxpilot
+description: >
+  InboxPilot — Professional email triage and operations environment.
+  Simulates a realistic inbox where an AI agent must classify, prioritize,
+  respond to, and route emails correctly. Supports 3 tasks with increasing
+  difficulty and deterministic grading.
+version: "1.0.0"
+author: InboxPilot Team
+tags:
+  - email
+  - triage
+  - operations
+  - enterprise
+  - real-world
+  - decision-making
+
+environment:
+  class: app.env.InboxPilotEnv
+  entry_point: app.env:InboxPilotEnv
+  action_type: app.models:Action
+  observation_type: app.models:Observation
+  state_type: app.models:EnvironmentState
+
+tasks:
+  - id: easy_support_triage
+    name: Support Inbox Triage
+    difficulty: easy
+    description: Process 6 mixed support emails — classify, prioritize, route.
+
+  - id: medium_customer_resolution
+    name: Customer Resolution Workflow
+    difficulty: medium
+    description: Fully resolve a customer complaint with reply, escalation, and follow-up.
+
+  - id: hard_exec_risk_management
+    name: Executive Inbox Risk Management
+    difficulty: hard
+    description: Handle 7 high-stakes exec emails — security, legal, HR, VIP, media.
+
+app:
+  server: app.main:app
+  port: 7860
+  endpoints:
+    reset: POST /reset
+    step: POST /step
+    state: GET /state
+    tasks: GET /tasks
+    health: GET /health
+
+runtime:
+  python: "3.11"
+  framework: fastapi
+  server: uvicorn

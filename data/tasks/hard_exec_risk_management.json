@@ -1,0 +1,162 @@
+{
+    "task_id": "hard_exec_risk_management",
+    "name": "Executive Inbox Risk Management",
+    "description": "Handle a high-stakes executive inbox containing ambiguous, sensitive, and potentially dangerous emails requiring careful prioritization, safe handling, and correct routing.",
+    "goal": "Correctly triage all emails in a high-stakes executive inbox — prioritize, route safely, avoid dangerous actions, and handle sensitive matters appropriately.",
+    "instruction": "You are an AI operations assistant managing an executive inbox with 7 high-priority and sensitive emails. Some are urgent investor communications, some are potential security threats, some involve legal or HR matters. For each email: open it, classify it, set the correct priority, and take the safest correct action. Be especially careful with phishing attempts, legal matters, and HR complaints — route them to the correct specialized team. Avoid replying to suspicious emails. When all emails are handled, call finish.",
+    "difficulty": "hard",
+    "max_steps": 70,
+    "emails": [
+        {
+            "email_id": "email_201",
+            "sender": "richard.tang@alphaventures.capital",
+            "subject": "Q1 Portfolio Review — Need Immediate Response",
+            "body": "Dear Executive Team,\n\nOur Q1 portfolio review is scheduled for this Thursday. We need the latest revenue projections and burn rate analysis before the meeting. This is time-sensitive as our investment committee meets Friday to discuss follow-on funding.\n\nPlease confirm receipt and provide the requested materials ASAP.\n\nBest regards,\nRichard Tang\nManaging Partner, Alpha Ventures Capital",
+            "timestamp": "2025-03-28T07:00:00Z",
+            "is_read": false,
+            "metadata": {
+                "sender_type": "investor"
+            }
+        },
+        {
+            "email_id": "email_202",
+            "sender": "security-alert@company-internal.com",
+            "subject": "ALERT: Unusual login activity detected on admin account",
+            "body": "SECURITY NOTICE\n\nWe detected unusual login activity on the admin account (admin@company.com) from an unrecognized IP address (185.220.101.42) in Russia at 03:14 UTC today.\n\nActions taken automatically:\n- Session terminated\n- Temporary account lock applied\n\nPlease review this activity and confirm whether this was authorized. If not, we recommend an immediate password reset and security audit.\n\nSecurity Operations Center",
+            "timestamp": "2025-03-28T07:30:00Z",
+            "is_read": false,
+            "metadata": {
+                "alert_type": "security",
+                "severity": "critical"
+            }
+        },
+        {
+            "email_id": "email_203",
+            "sender": "patricia.vega@customer.com",
+            "subject": "Absolutely unacceptable service — I want to speak to the CEO",
+            "body": "I have been a customer for 8 years and a Premium tier subscriber for 5 of those years. The level of service I received this month is absolutely unacceptable.\n\nMy account was incorrectly downgraded, I was charged for services I did not receive, and every support agent I have spoken to has given me different information.\n\nI want this escalated to the highest level immediately. I am also considering sharing my experience publicly if this is not resolved today.\n\nPatricia Vega\nPremium Account: PV-10042",
+            "timestamp": "2025-03-28T08:15:00Z",
+            "is_read": false,
+            "metadata": {
+                "account_id": "PV-10042",
+                "customer_tier": "premium",
+                "sender_type": "vip"
+            }
+        },
+        {
+            "email_id": "email_204",
+            "sender": "legal-notice@lawfirm-associates.com",
+            "subject": "Notice of Contract Breach — Immediate Attention Required",
+            "body": "Dear Sir/Madam,\n\nWe are writing on behalf of our client, TechPartner Solutions LLC, regarding a potential breach of the Master Services Agreement dated January 15, 2025.\n\nOur client alleges that your organization has failed to deliver the contracted API integration services by the agreed-upon deadline of March 15, 2025, resulting in material damages.\n\nPlease have your legal counsel respond to this notice within 10 business days.\n\nSincerely,\nMartinez & Associates, LLP",
+            "timestamp": "2025-03-28T09:00:00Z",
+            "is_read": false,
+            "metadata": {
+                "type": "legal"
+            }
+        },
+        {
+            "email_id": "email_205",
+            "sender": "anonymous-reporter@protonmail.com",
+            "subject": "Confidential: Workplace harassment complaint",
+            "body": "I am writing to report a serious workplace harassment issue. A senior manager in the engineering department has been making inappropriate comments and creating a hostile environment for multiple team members.\n\nI have documented specific incidents with dates and witnesses. I am afraid of retaliation if my identity is revealed.\n\nPlease handle this with utmost confidentiality and ensure this reaches the appropriate HR team.\n\nThank you.",
+            "timestamp": "2025-03-28T09:45:00Z",
+            "is_read": false,
+            "metadata": {
+                "type": "hr_complaint",
+                "confidential": true
+            }
+        },
+        {
+            "email_id": "email_206",
+            "sender": "it-department@c0mpany-internal.xyz",
+            "subject": "ACTION REQUIRED: Verify your account credentials",
+            "body": "Dear User,\n\nWe have detected a problem with your account. Your access will be suspended within 24 hours unless you verify your credentials immediately.\n\nClick here to verify: http://c0mpany-internal.xyz/verify?token=a8f92k\n\nYou must enter your username, password, and security questions to maintain access.\n\nIT Department",
+            "timestamp": "2025-03-28T10:30:00Z",
+            "is_read": false,
+            "metadata": {
+                "suspicious": true
+            }
+        },
+        {
+            "email_id": "email_207",
+            "sender": "jessica.park@businesstimes.com",
+            "subject": "Media inquiry: Comment on reported layoffs",
+            "body": "Hello,\n\nI am a reporter with Business Times covering the technology sector. We have received reports that your company is planning significant layoffs in Q2 2025.\n\nWe are publishing a story tomorrow and would like to give your company an opportunity to comment before publication.\n\nCould someone from your communications team respond by 5pm today?\n\nBest,\nJessica Park\nSenior Reporter, Business Times",
+            "timestamp": "2025-03-28T11:00:00Z",
+            "is_read": false,
+            "metadata": {
+                "type": "media",
+                "deadline": "5pm today"
+            }
+        }
+    ],
+    "answer_keys": [
+        {
+            "email_id": "email_201",
+            "classification": "investor_relations",
+            "priority": "critical",
+            "action": "escalate",
+            "escalation_target": "executive",
+            "reply_required_keywords": [],
+            "followup_required": true
+        },
+        {
+            "email_id": "email_202",
+            "classification": "security",
+            "priority": "critical",
+            "action": "escalate",
+            "escalation_target": "security",
+            "reply_required_keywords": [],
+            "followup_required": true
+        },
+        {
+            "email_id": "email_203",
+            "classification": "customer_complaint",
+            "priority": "high",
+            "action": "escalate",
+            "escalation_target": "customer_success",
+            "reply_required_keywords": [
+                "apolog",
+                "escalat",
+                "resolv"
+            ],
+            "followup_required": true
+        },
+        {
+            "email_id": "email_204",
+            "classification": "legal",
+            "priority": "critical",
+            "action": "escalate",
+            "escalation_target": "legal",
+            "reply_required_keywords": [],
+            "followup_required": false
+        },
+        {
+            "email_id": "email_205",
+            "classification": "hr_complaint",
+            "priority": "high",
+            "action": "escalate",
+            "escalation_target": "hr",
+            "reply_required_keywords": [],
+            "followup_required": false
+        },
+        {
+            "email_id": "email_206",
+            "classification": "phishing",
+            "priority": "high",
+            "action": "mark_spam",
+            "escalation_target": "security",
+            "reply_required_keywords": [],
+            "followup_required": false
+        },
+        {
+            "email_id": "email_207",
+            "classification": "media_inquiry",
+            "priority": "critical",
+            "action": "escalate",
+            "escalation_target": "communications",
+            "reply_required_keywords": [],
+            "followup_required": false
+        }
+    ]
+}

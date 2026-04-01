@@ -1,0 +1,121 @@
+{
+  "task_id": "easy_support_triage",
+  "name": "Support Inbox Triage",
+  "description": "Process a small inbox of mixed incoming support emails and correctly classify, prioritize, and route each one.",
+  "goal": "Triage all emails in the inbox by classifying, prioritizing, and routing them appropriately.",
+  "instruction": "You are an AI operations assistant. Your inbox has 6 emails. For each email: open it, classify it into the correct category, set its priority, then take the appropriate action (archive, escalate, mark as spam, or send a reply). When all emails are handled, call finish.",
+  "difficulty": "easy",
+  "max_steps": 50,
+  "emails": [
+    {
+      "email_id": "email_001",
+      "sender": "jane.doe@customer.com",
+      "subject": "Refund for Order #8812",
+      "body": "Hi Support,\n\nI placed order #8812 last week but the item arrived damaged. I would like a full refund. I have attached photos of the damage. Please process this as soon as possible.\n\nThank you,\nJane Doe",
+      "timestamp": "2025-03-28T09:15:00Z",
+      "is_read": false,
+      "metadata": {"order_id": "8812"}
+    },
+    {
+      "email_id": "email_002",
+      "sender": "bob.smith@customer.com",
+      "subject": "Charged twice for subscription",
+      "body": "Hello,\n\nI was charged twice on my credit card for my monthly subscription this month. The charges appeared on March 25 and March 26. Please investigate and reverse the duplicate charge immediately.\n\nBob Smith\nAccount: BS-44120",
+      "timestamp": "2025-03-28T10:30:00Z",
+      "is_read": false,
+      "metadata": {"account_id": "BS-44120"}
+    },
+    {
+      "email_id": "email_003",
+      "sender": "carol.wu@partner.com",
+      "subject": "Reschedule Wednesday meeting",
+      "body": "Hi,\n\nCould we move our Wednesday 2pm sync to Thursday at the same time? I have a scheduling conflict.\n\nThanks,\nCarol",
+      "timestamp": "2025-03-28T11:00:00Z",
+      "is_read": false,
+      "metadata": {}
+    },
+    {
+      "email_id": "email_004",
+      "sender": "accounting@vendor.net",
+      "subject": "Invoice #INV-2025-0394 copy request",
+      "body": "Dear Team,\n\nCould you please resend a copy of invoice #INV-2025-0394 from February? We need it for our quarterly audit.\n\nRegards,\nAccounts Payable",
+      "timestamp": "2025-03-28T11:45:00Z",
+      "is_read": false,
+      "metadata": {"invoice_id": "INV-2025-0394"}
+    },
+    {
+      "email_id": "email_005",
+      "sender": "mike.j@customer.com",
+      "subject": "Cannot log in to my account",
+      "body": "Hi,\n\nI have been trying to log in to my account since yesterday but keep getting an \"invalid credentials\" error. I have tried resetting my password twice with no luck. Please help.\n\nMike Johnson\nEmail: mike.j@customer.com",
+      "timestamp": "2025-03-28T12:10:00Z",
+      "is_read": false,
+      "metadata": {}
+    },
+    {
+      "email_id": "email_006",
+      "sender": "winner-notification@pr1ze-claimz.xyz",
+      "subject": "CONGRATULATIONS! You have won $1,000,000!!!",
+      "body": "Dear Lucky Winner,\n\nYou have been selected as the GRAND PRIZE WINNER of our international sweepstakes! To claim your $1,000,000 prize, click the link below and enter your bank account details immediately:\n\nhttp://totallylegit-prize.xyz/claim?id=x9f83k\n\nACT NOW before your prize expires!\n\nSincerely,\nInternational Prize Committee",
+      "timestamp": "2025-03-28T13:00:00Z",
+      "is_read": false,
+      "metadata": {}
+    }
+  ],
+  "answer_keys": [
+    {
+      "email_id": "email_001",
+      "classification": "refund",
+      "priority": "high",
+      "action": "escalate",
+      "escalation_target": "billing",
+      "reply_required_keywords": [],
+      "followup_required": false
+    },
+    {
+      "email_id": "email_002",
+      "classification": "billing",
+      "priority": "high",
+      "action": "escalate",
+      "escalation_target": "billing",
+      "reply_required_keywords": [],
+      "followup_required": false
+    },
+    {
+      "email_id": "email_003",
+      "classification": "scheduling",
+      "priority": "low",
+      "action": "send_reply",
+      "escalation_target": null,
+      "reply_required_keywords": ["reschedule", "thursday"],
+      "followup_required": false
+    },
+    {
+      "email_id": "email_004",
+      "classification": "invoice",
+      "priority": "medium",
+      "action": "send_reply",
+      "escalation_target": null,
+      "reply_required_keywords": ["invoice", "copy"],
+      "followup_required": false
+    },
+    {
+      "email_id": "email_005",
+      "classification": "technical_support",
+      "priority": "high",
+      "action": "escalate",
+      "escalation_target": "technical_support",
+      "reply_required_keywords": [],
+      "followup_required": false
+    },
+    {
+      "email_id": "email_006",
+      "classification": "spam",
+      "priority": "low",
+      "action": "mark_spam",
+      "escalation_target": null,
+      "reply_required_keywords": [],
+      "followup_required": false
+    }
+  ]
+}

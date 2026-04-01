@@ -1,0 +1,42 @@
+{
+    "task_id": "medium_customer_resolution",
+    "name": "Customer Resolution Workflow",
+    "description": "Fully resolve a customer complaint involving a duplicate charge, including classification, prioritization, drafting a response, escalation, and scheduling a follow-up.",
+    "goal": "Completely resolve the customer complaint by classifying, responding empathetically, escalating to the right team, and scheduling a follow-up.",
+    "instruction": "You are an AI operations assistant. A customer has emailed about being charged twice and not receiving a response for days. You must: open the email, classify it as billing, set priority to high, draft an empathetic reply acknowledging the issue and promising resolution, send the reply, escalate to the billing team, schedule a follow-up, then finish. Complete the full resolution workflow.",
+    "difficulty": "medium",
+    "max_steps": 40,
+    "emails": [
+        {
+            "email_id": "email_101",
+            "sender": "sarah.chen@customer.com",
+            "subject": "URGENT: Charged twice — no response for 3 days!",
+            "body": "To whom it may concern,\n\nI am extremely frustrated. I was charged TWICE for my order #ORD-9981 on March 22, and despite emailing your support team THREE DAYS AGO, I have received absolutely no response.\n\nThe charges are:\n- $149.99 on March 22\n- $149.99 on March 23 (duplicate)\n\nThis is unacceptable. I need the duplicate charge reversed immediately, and I expect a prompt reply this time. If this is not resolved within 24 hours, I will be filing a dispute with my credit card company and leaving reviews about my experience.\n\nSarah Chen\nAccount: SC-77201\nPhone: 555-0142",
+            "timestamp": "2025-03-28T08:00:00Z",
+            "is_read": false,
+            "metadata": {
+                "order_id": "ORD-9981",
+                "account_id": "SC-77201",
+                "duplicate_amount": 149.99
+            }
+        }
+    ],
+    "answer_keys": [
+        {
+            "email_id": "email_101",
+            "classification": "billing",
+            "priority": "high",
+            "action": "send_reply",
+            "escalation_target": "billing",
+            "reply_required_keywords": [
+                "apolog",
+                "refund",
+                "duplicate",
+                "charge",
+                "review",
+                "resolv"
+            ],
+            "followup_required": true
+        }
+    ]
+}
