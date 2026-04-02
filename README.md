@@ -1,3 +1,13 @@
+---
+title: InboxPilot
+emoji: 📬
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 <p align="center">
   <h1 align="center">📬 InboxPilot</h1>
   <p align="center"><strong>AI-Native Email Operations Environment</strong></p>
