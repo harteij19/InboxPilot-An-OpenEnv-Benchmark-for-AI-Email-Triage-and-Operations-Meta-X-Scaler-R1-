@@ -1,12 +1,15 @@
 spec_version: 1
+
 name: inboxpilot
 description: >
   InboxPilot — Professional email triage and operations environment.
   Simulates a realistic inbox where an AI agent must classify, prioritize,
   respond to, and route emails correctly. Supports 3 tasks with increasing
   difficulty and deterministic grading.
+
 version: "1.0.0"
 author: InboxPilot Team
+
 tags:
   - email
   - triage
@@ -41,12 +44,23 @@ tasks:
 app:
   server: app.main:app
   port: 7860
-  endpoints:
-    reset: POST /reset
-    step: POST /step
-    state: GET /state
-    tasks: GET /tasks
-    health: GET /health
+
+endpoints:
+  reset:
+    method: POST
+    path: /reset
+  step:
+    method: POST
+    path: /step
+  state:
+    method: GET
+    path: /state
+  tasks:
+    method: GET
+    path: /tasks
+  health:
+    method: GET
+    path: /health
 
 runtime:
   python: "3.11"
