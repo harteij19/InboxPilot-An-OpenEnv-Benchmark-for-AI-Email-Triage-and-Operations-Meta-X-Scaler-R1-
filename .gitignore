@@ -16,3 +16,5 @@ build/
 *.log
 .DS_Store
 Thumbs.db
+
+.openenv_test_venv/
