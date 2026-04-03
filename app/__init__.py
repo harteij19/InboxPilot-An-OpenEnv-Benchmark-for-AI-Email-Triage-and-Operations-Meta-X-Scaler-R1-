@@ -1,1 +1,1 @@
-# InboxPilot OpenEnv - Professional Email Triage Environment
+# Makes app module discoverable.

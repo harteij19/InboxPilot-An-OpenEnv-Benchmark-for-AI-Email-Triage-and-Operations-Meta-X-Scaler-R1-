@@ -1,0 +1,6 @@
+include pyproject.toml
+include openenv.yaml
+include README.md
+include Dockerfile
+recursive-include app *
+recursive-include server *
