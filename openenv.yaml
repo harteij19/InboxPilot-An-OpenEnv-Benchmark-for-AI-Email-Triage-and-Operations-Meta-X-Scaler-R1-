@@ -1,11 +1,10 @@
 spec_version: 1
 
-name: inboxpilot
+name: inboxpilot-openenv
 description: >
-  InboxPilot — Professional email triage and operations environment.
+  InboxPilot professional email triage and operations environment.
   Simulates a realistic inbox where an AI agent must classify, prioritize,
-  respond to, and route emails correctly. Supports 3 tasks with increasing
-  difficulty and deterministic grading.
+  respond to, and route emails correctly.
 
 version: "1.0.0"
 author: InboxPilot Team
@@ -15,7 +14,6 @@ tags:
   - triage
   - operations
   - enterprise
-  - real-world
   - decision-making
 
 environment:
@@ -24,45 +22,62 @@ environment:
   action_type: app.models:Action
   observation_type: app.models:Observation
   state_type: app.models:EnvironmentState
+  metadata:
+    deterministic: true
+    supports_grading: true
 
 tasks:
   - id: easy_support_triage
     name: Support Inbox Triage
     difficulty: easy
-    description: Process 6 mixed support emails — classify, prioritize, route.
+    description: Process mixed support emails and route correctly.
+    schema: data/schemas/easy_support_triage.json
+    data: data/tasks/easy_support_triage.json
 
   - id: medium_customer_resolution
     name: Customer Resolution Workflow
     difficulty: medium
-    description: Fully resolve a customer complaint with reply, escalation, and follow-up.
+    description: Resolve a customer complaint with escalation and follow-up.
+    schema: data/schemas/medium_customer_resolution.json
+    data: data/tasks/medium_customer_resolution.json
 
   - id: hard_exec_risk_management
     name: Executive Inbox Risk Management
     difficulty: hard
-    description: Handle 7 high-stakes exec emails — security, legal, HR, VIP, media.
+    description: Handle high-risk executive emails across security and legal themes.
+    schema: data/schemas/hard_exec_risk_management.json
+    data: data/tasks/hard_exec_risk_management.json
 
 app:
-  server: app.main:app
+  module: app.main
+  object: app
+  host: 0.0.0.0
   port: 7860
 
+server:
+  module: server.app
+  object: mcp
+  entrypoint: server.app:main
+
 endpoints:
-  reset:
+  - name: reset
     method: POST
     path: /reset
-  step:
+  - name: step
     method: POST
     path: /step
-  state:
+  - name: state
     method: GET
     path: /state
-  tasks:
+  - name: tasks
     method: GET
     path: /tasks
-  health:
+  - name: health
     method: GET
     path: /health
 
 runtime:
   python: "3.11"
   framework: fastapi
-  server: uvicorn
+  web_server: uvicorn
+  mode: multi

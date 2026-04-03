@@ -1,7 +1,4 @@
-"""
-Minimal MCP server entry point to satisfy OpenEnv multi-mode validation.
-This does NOT replace the main FastAPI app used by Hugging Face deployment.
-"""
+"""Minimal MCP server entry point for OpenEnv validation."""
 
 from fastmcp import FastMCP
 
@@ -10,12 +7,12 @@ mcp = FastMCP("inboxpilot-openenv")
 
 @mcp.tool()
 def openenv_health() -> str:
-    """Return health status for OpenEnv multi-mode validator."""
+    """Return health status for validator checks."""
     return "ok"
 
 
 def main() -> None:
-    """Run the minimal MCP server."""
+    """Run MCP server without touching the FastAPI app."""
     mcp.run()
 
 

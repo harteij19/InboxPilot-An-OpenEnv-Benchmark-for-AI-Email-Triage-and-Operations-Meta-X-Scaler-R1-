@@ -5,25 +5,21 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "inboxpilot-openenv"
 version = "1.0.0"
-description = "InboxPilot — Professional email triage and operations environment."
+description = "InboxPilot professional email triage and operations environment"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
     { name = "InboxPilot Team" }
 ]
-classifiers = [
-    "Programming Language :: Python :: 3.11",
-    "Operating System :: OS Independent",
-]
 dependencies = [
-    "fastapi>=0.110.0",
-    "uvicorn[standard]>=0.29.0",
-    "pydantic>=2.6.0",
-    "openai>=1.12.0",
-    "httpx>=0.27.0",
-    "pytest>=8.0.0",
-    "python-dotenv>=1.0.0",
-    "pyyaml>=6.0.1",
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic",
+    "openai",
+    "httpx",
+    "pytest",
+    "python-dotenv",
+    "pyyaml",
     "fastmcp",
     "openenv-core>=0.2.0"
 ]
@@ -36,7 +32,7 @@ dev = [
 ]
 
 [project.scripts]
-server = "server.app:main"
+inboxpilot-server = "server.app:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

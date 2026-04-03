@@ -1,1 +1,3 @@
-# Makes app module discoverable.
+"""App package marker."""
+
+__all__ = []
