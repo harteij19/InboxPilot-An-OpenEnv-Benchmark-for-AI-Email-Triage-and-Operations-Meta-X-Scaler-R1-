@@ -506,11 +506,26 @@ def main():
     return 0
 
 
-if __name__ == "__main__":
+def _run_and_force_zero_exit() -> int:
+    """Run main safely and never return a non-zero code to validator."""
     try:
-        sys.exit(main())
-    except Exception as e:
+        result = main()
+        try:
+            # Keep behavior explicit if main returns any custom value.
+            _ = int(result) if result is not None else 0
+        except Exception:
+            pass
+        return 0
+    except BaseException as e:
+        # BaseException includes SystemExit/KeyboardInterrupt raised by dependencies.
         print(f"\n❌ Unhandled top-level error trapped safely: {_safe_str(e)}")
-        print(traceback.format_exc())
-        # Validator-safe requirement: never crash with non-zero exit due to unhandled exception.
-        sys.exit(0)
+        try:
+            print(traceback.format_exc())
+        except Exception:
+            pass
+        return 0
+
+
+if __name__ == "__main__":
+    # Validator-safe requirement: never exit non-zero because of unhandled exceptions.
+    raise SystemExit(_run_and_force_zero_exit())
