@@ -20,6 +20,7 @@ import re
 import sys
 import time
 import traceback
+import builtins as _builtins
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -39,6 +40,7 @@ except Exception:
 ACTION_CLASS = None
 ENV_CLASS = None
 GET_ALL_TASK_IDS_FN = None
+MODEL_CALLS_DISABLED = False
 
 # ---------------------------------------------------------------------------
 # Config from environment variables
@@ -78,14 +80,18 @@ def _safe_str(value: Any) -> str:
 def _safe_print(*args, **kwargs) -> None:
     """Print without ever failing due to encoding/output issues."""
     try:
-        print(*args, **kwargs)
+        _builtins.print(*args, **kwargs)
     except Exception:
         try:
             msg = " ".join(_safe_str(a) for a in args)
-            print(msg.encode("ascii", "replace").decode("ascii"), **kwargs)
+            _builtins.print(msg.encode("ascii", "replace").decode("ascii"), **kwargs)
         except Exception:
             # Last-resort: never allow logging to crash inference.
             pass
+
+
+# Route all print calls in this module through the safe logger.
+print = _safe_print
 
 
 def _model_to_dict(value: Any) -> dict[str, Any]:
@@ -123,7 +129,12 @@ def get_openai_client():
 
     try:
         # Keep hackathon compliance: always initialize OpenAI client path with required vars.
-        return OpenAI(api_key=OPENAI_API_KEY or "missing-key", base_url=API_BASE_URL)
+        return OpenAI(
+            api_key=OPENAI_API_KEY or "missing-key",
+            base_url=API_BASE_URL,
+            timeout=10.0,
+            max_retries=0,
+        )
     except Exception as e:
         print(f"  ⚠️  Failed to create OpenAI client, using deterministic fallback agent. Error: {_safe_str(e)}")
         return None
@@ -289,7 +300,11 @@ def deterministic_fallback_action(observation: dict) -> dict[str, Any]:
 
 def safe_model_action(client, observation: dict, step: int) -> dict[str, Any]:
     """Get next action from model or deterministic fallback without raising."""
+    global MODEL_CALLS_DISABLED
+
     if client is None:
+        return deterministic_fallback_action(observation)
+    if MODEL_CALLS_DISABLED:
         return deterministic_fallback_action(observation)
 
     user_prompt = build_user_prompt(observation)
@@ -320,6 +335,8 @@ def safe_model_action(client, observation: dict, step: int) -> dict[str, Any]:
         return parsed
     except Exception as e:
         print(f"  ❌ API error at step {step}: {_safe_str(e)}")
+        # Disable further remote calls for this run to avoid repeated slow failures.
+        MODEL_CALLS_DISABLED = True
         return deterministic_fallback_action(observation)
 
 
@@ -397,7 +414,9 @@ def run_task(client, env, task_id: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def main():
-    global ACTION_CLASS, ENV_CLASS, GET_ALL_TASK_IDS_FN
+    global ACTION_CLASS, ENV_CLASS, GET_ALL_TASK_IDS_FN, MODEL_CALLS_DISABLED
+
+    MODEL_CALLS_DISABLED = False
 
     start_time = time.time()
     missing = []
