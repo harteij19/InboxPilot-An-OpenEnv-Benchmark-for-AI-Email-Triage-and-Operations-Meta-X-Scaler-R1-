@@ -21,7 +21,7 @@ import sys
 import time
 import traceback
 import builtins as _builtins
-from typing import Any
+from typing import Any, Dict
 
 # ---------------------------------------------------------------------------
 # Add project root to path so we can import app.*
@@ -66,7 +66,7 @@ ALLOWED_ACTIONS = {
 }
 
 
-def _fallback_finish() -> dict[str, Any]:
+def _fallback_finish() -> Dict[str, Any]:
     return {"action_type": "finish", "email_id": None, "payload": {}}
 
 
@@ -94,7 +94,7 @@ def _safe_print(*args, **kwargs) -> None:
 print = _safe_print
 
 
-def _model_to_dict(value: Any) -> dict[str, Any]:
+def _model_to_dict(value: Any) -> Dict[str, Any]:
     """Best-effort conversion from pydantic/dataclass-like objects to dict."""
     if isinstance(value, dict):
         return value
@@ -280,7 +280,7 @@ def parse_action(response_text: str) -> dict:
     return _fallback_finish()
 
 
-def deterministic_fallback_action(observation: dict) -> dict[str, Any]:
+def deterministic_fallback_action(observation: dict) -> Dict[str, Any]:
     """Return a deterministic, safe action when model calls/parsing fail."""
     if not isinstance(observation, dict):
         return _fallback_finish()
@@ -298,7 +298,7 @@ def deterministic_fallback_action(observation: dict) -> dict[str, Any]:
     return _fallback_finish()
 
 
-def safe_model_action(client, observation: dict, step: int) -> dict[str, Any]:
+def safe_model_action(client, observation: dict, step: int) -> Dict[str, Any]:
     """Get next action from model or deterministic fallback without raising."""
     global MODEL_CALLS_DISABLED
 
