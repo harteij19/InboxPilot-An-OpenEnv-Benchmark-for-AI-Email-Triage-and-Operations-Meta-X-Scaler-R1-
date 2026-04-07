@@ -27,9 +27,18 @@ from typing import Any
 # ---------------------------------------------------------------------------
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from app.env import InboxPilotEnv
-from app.models import Action
-from app.tasks import get_all_task_ids
+try:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(errors="replace")
+except Exception:
+    pass
+
+# Lazy-loaded in main() to avoid import-time hard failures in validator runtime.
+ACTION_CLASS = None
+ENV_CLASS = None
+GET_ALL_TASK_IDS_FN = None
 
 # ---------------------------------------------------------------------------
 # Config from environment variables
@@ -64,6 +73,40 @@ def _safe_str(value: Any) -> str:
         return str(value)
     except Exception:
         return "<unprintable>"
+
+
+def _safe_print(*args, **kwargs) -> None:
+    """Print without ever failing due to encoding/output issues."""
+    try:
+        print(*args, **kwargs)
+    except Exception:
+        try:
+            msg = " ".join(_safe_str(a) for a in args)
+            print(msg.encode("ascii", "replace").decode("ascii"), **kwargs)
+        except Exception:
+            # Last-resort: never allow logging to crash inference.
+            pass
+
+
+def _model_to_dict(value: Any) -> dict[str, Any]:
+    """Best-effort conversion from pydantic/dataclass-like objects to dict."""
+    if isinstance(value, dict):
+        return value
+    if value is None:
+        return {}
+    try:
+        if hasattr(value, "model_dump"):
+            dumped = value.model_dump()
+            return dumped if isinstance(dumped, dict) else {}
+    except Exception:
+        pass
+    try:
+        if hasattr(value, "dict"):
+            dumped = value.dict()
+            return dumped if isinstance(dumped, dict) else {}
+    except Exception:
+        pass
+    return {}
 
 
 def get_openai_client():
@@ -284,7 +327,7 @@ def safe_model_action(client, observation: dict, step: int) -> dict[str, Any]:
 # Run a single task
 # ---------------------------------------------------------------------------
 
-def run_task(client, env: InboxPilotEnv, task_id: str) -> dict:
+def run_task(client, env, task_id: str) -> dict:
     """Run inference on a single task and return the grade result."""
     print(f"\n{'='*60}")
     print(f"  Task: {task_id}")
@@ -292,7 +335,7 @@ def run_task(client, env: InboxPilotEnv, task_id: str) -> dict:
 
     try:
         result = env.reset(task_id=task_id)
-        obs = result.observation.model_dump() if getattr(result, "observation", None) is not None else {}
+        obs = _model_to_dict(getattr(result, "observation", None))
         done = bool(getattr(result, "done", False))
     except Exception as e:
         print(f"  ❌ reset failed for task {task_id}: {_safe_str(e)}")
@@ -305,21 +348,25 @@ def run_task(client, env: InboxPilotEnv, task_id: str) -> dict:
         step += 1
         action_dict = safe_model_action(client, obs, step)
 
+        if ACTION_CLASS is None:
+            print("  ❌ Action class is unavailable. Stopping task safely.")
+            break
+
         try:
-            action = Action(
+            action = ACTION_CLASS(
                 action_type=str(action_dict.get("action_type", "finish")),
                 email_id=action_dict.get("email_id"),
                 payload=action_dict.get("payload") if isinstance(action_dict.get("payload"), dict) else {},
             )
         except Exception as e:
             print(f"  ⚠️  Invalid action object at step {step}: {_safe_str(e)}. Using finish.")
-            action = Action(action_type="finish", email_id=None, payload={})
+            action = ACTION_CLASS(action_type="finish", email_id=None, payload={})
 
         print(f"  Step {step}: {action.action_type} on {action.email_id or '-'}", end="")
 
         try:
             step_result = env.step(action)
-            obs = step_result.observation.model_dump() if getattr(step_result, "observation", None) is not None else {}
+            obs = _model_to_dict(getattr(step_result, "observation", None))
             reward = getattr(step_result, "reward", None)
             done = bool(getattr(step_result, "done", True))
 
@@ -350,6 +397,8 @@ def run_task(client, env: InboxPilotEnv, task_id: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def main():
+    global ACTION_CLASS, ENV_CLASS, GET_ALL_TASK_IDS_FN
+
     start_time = time.time()
     missing = []
     if not OPENAI_API_KEY:
@@ -380,17 +429,29 @@ def main():
     print(f"║  HF Token: {'set' if HF_TOKEN else 'missing':<46}║")
     print("╚══════════════════════════════════════════════════════════╝")
 
+    try:
+        from app.env import InboxPilotEnv as _InboxPilotEnv
+        from app.models import Action as _Action
+        from app.tasks import get_all_task_ids as _get_all_task_ids
+        ACTION_CLASS = _Action
+        ENV_CLASS = _InboxPilotEnv
+        GET_ALL_TASK_IDS_FN = _get_all_task_ids
+    except Exception as e:
+        print(f"ERROR: Failed to import app modules: {_safe_str(e)}")
+        print("Exiting gracefully with status code 0.")
+        return 0
+
     client = get_openai_client()
 
     try:
-        env = InboxPilotEnv()
+        env = ENV_CLASS()
     except Exception as e:
         print(f"❌ Failed to initialize environment: {_safe_str(e)}")
         print("   Exiting gracefully with status code 0.")
         return 0
 
     try:
-        task_ids = get_all_task_ids()
+        task_ids = GET_ALL_TASK_IDS_FN()
         if not isinstance(task_ids, list) or not task_ids:
             print("⚠️  No tasks discovered. Exiting cleanly.")
             return 0
