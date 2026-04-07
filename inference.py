@@ -2,14 +2,10 @@
 """
 InboxPilot — Baseline inference script.
 
-Evaluates all 3 tasks using an LLM via the OpenAI Python client.
-Produces reproducible baseline scores with deterministic prompting (temperature=0).
-
-IMPORTANT:
-This script prints structured validator blocks:
-- [START]
-- [STEP]
-- [END]
+Validator-compliant version:
+- Uses injected API_KEY and API_BASE_URL for LiteLLM proxy
+- Prints [START] / [STEP] / [END] structured output
+- Never exits with non-zero code
 """
 
 from __future__ import annotations
@@ -26,12 +22,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # ---------------------------------------------------------------------------
 # Config from environment variables
+# IMPORTANT: Validator expects API_KEY + API_BASE_URL
 # ---------------------------------------------------------------------------
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-API_BASE_URL   = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME     = os.environ.get("MODEL_NAME", "gpt-4o-mini")
-HF_TOKEN       = os.environ.get("HF_TOKEN", "")
-MAX_STEPS      = 60  # safety cap across all tasks
+API_KEY        = os.environ.get("API_KEY", "").strip()
+API_BASE_URL   = os.environ.get("API_BASE_URL", "").strip()
+MODEL_NAME     = os.environ.get("MODEL_NAME", "gpt-4o-mini").strip()
+HF_TOKEN       = os.environ.get("HF_TOKEN", "").strip()
+
+# Optional fallback for local dev only (not primary)
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
+
+MAX_STEPS = 60
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +172,40 @@ def print_end(task_id: str, score: float, steps: int):
 
 
 # ---------------------------------------------------------------------------
+# Build OpenAI client using validator-injected proxy
+# ---------------------------------------------------------------------------
+
+def build_client():
+    try:
+        from openai import OpenAI
+    except Exception as e:
+        print(f"Could not import OpenAI client: {e}", flush=True)
+        return None
+
+    # PRIMARY validator-compliant path
+    if API_KEY and API_BASE_URL:
+        try:
+            print("Using validator-injected LiteLLM proxy credentials.", flush=True)
+            return OpenAI(api_key=API_KEY, base_url=API_BASE_URL)
+        except Exception as e:
+            print(f"Failed to create proxy OpenAI client: {e}", flush=True)
+
+    # LOCAL fallback only
+    if OPENAI_API_KEY:
+        try:
+            print("Using local OPENAI_API_KEY fallback.", flush=True)
+            return OpenAI(
+                api_key=OPENAI_API_KEY,
+                base_url=API_BASE_URL or "https://api.openai.com/v1"
+            )
+        except Exception as e:
+            print(f"Failed to create local OpenAI client: {e}", flush=True)
+
+    print("WARNING: No usable API credentials found. Running dry mode.", flush=True)
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Run a single task
 # ---------------------------------------------------------------------------
 
@@ -192,7 +227,7 @@ def run_task(client, env, task_id: str) -> dict:
 
             raw = '{"action_type": "finish", "email_id": null, "payload": {}}'
 
-            if client is not None and OPENAI_API_KEY:
+            if client is not None:
                 try:
                     response = client.chat.completions.create(
                         model=MODEL_NAME,
@@ -245,9 +280,7 @@ def run_task(client, env, task_id: str) -> dict:
 def main():
     print("InboxPilot - Baseline Inference", flush=True)
     print(f"Model: {MODEL_NAME}", flush=True)
-
-    if not OPENAI_API_KEY:
-        print("WARNING: OPENAI_API_KEY not set - running dry baseline mode.", flush=True)
+    print(f"API_BASE_URL: {API_BASE_URL or '(not set)'}", flush=True)
 
     try:
         from app.env   import InboxPilotEnv
@@ -263,13 +296,7 @@ def main():
         print(f"Environment setup error: {setup_err}", flush=True)
         return
 
-    client = None
-    if OPENAI_API_KEY:
-        try:
-            from openai import OpenAI
-            client = OpenAI(api_key=OPENAI_API_KEY, base_url=API_BASE_URL)
-        except Exception as client_err:
-            print(f"Could not create OpenAI client: {client_err}", flush=True)
+    client = build_client()
 
     results = {}
     for tid in task_ids:
