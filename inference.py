@@ -5,11 +5,11 @@ InboxPilot — Baseline inference script.
 Evaluates all 3 tasks using an LLM via the OpenAI Python client.
 Produces reproducible baseline scores with deterministic prompting (temperature=0).
 
-Usage:
-    export OPENAI_API_KEY=sk-...
-    export MODEL_NAME=gpt-4o-mini          # optional, defaults to gpt-4o-mini
-    export API_BASE_URL=https://api.openai.com/v1  # optional
-    python inference.py
+IMPORTANT:
+This script prints structured validator blocks:
+- [START]
+- [STEP]
+- [END]
 """
 
 from __future__ import annotations
@@ -43,17 +43,17 @@ SYSTEM_PROMPT = """You are InboxPilot, an AI email operations assistant. You mus
 You MUST respond with ONLY a valid JSON object — no markdown, no explanation, no extra text.
 
 Available actions:
-- open_email: Open an email to read it. Payload: {} (email_id required)
-- classify_email: Classify an email. Payload: {"category": "<category>"}
-- set_priority: Set priority. Payload: {"priority": "low"|"medium"|"high"|"critical"}
-- draft_reply: Draft a reply. Payload: {"reply_text": "<text>"}
-- send_reply: Send the drafted reply. Payload: {}
-- escalate: Escalate to a team. Payload: {"team": "<team_name>"}
-- mark_spam: Mark as spam. Payload: {}
-- archive: Archive the email. Payload: {}
-- schedule_followup: Schedule a follow-up. Payload: {}
-- request_more_info: Request more info. Payload: {}
-- finish: Signal you are done with all emails. Payload: {}
+- open_email
+- classify_email
+- set_priority
+- draft_reply
+- send_reply
+- escalate
+- mark_spam
+- archive
+- schedule_followup
+- request_more_info
+- finish
 
 Response format (ONLY valid JSON):
 {
@@ -61,23 +61,10 @@ Response format (ONLY valid JSON):
   "email_id": "<email_id or null>",
   "payload": { ... }
 }
-
-Strategy:
-1. For each email: open -> classify -> set_priority -> take action (escalate/reply/spam/archive)
-2. Process all emails before calling finish.
-3. For spam/phishing: mark_spam, do NOT reply.
-4. For billing/refund: classify, set high priority, escalate to billing.
-5. For complaints: draft empathetic reply, send, escalate, schedule_followup if needed.
-6. For legal: escalate to legal, do NOT reply.
-7. For security alerts: escalate to security.
-8. For HR complaints: escalate to hr.
-9. For media inquiries: escalate to communications.
-10. For investor requests: escalate to executive.
 """
 
 
 def build_user_prompt(observation: dict) -> str:
-    """Build user prompt from observation."""
     parts = []
     parts.append(f"GOAL: {observation.get('goal', '')}")
     parts.append(f"INSTRUCTION: {observation.get('instruction', '')}")
@@ -121,20 +108,17 @@ def build_user_prompt(observation: dict) -> str:
 # ---------------------------------------------------------------------------
 
 def parse_action(response_text: str) -> dict:
-    """Parse JSON action from LLM response. Fallback on failure."""
     if not response_text:
         return {"action_type": "finish", "email_id": None, "payload": {}}
 
     text = response_text.strip()
 
-    # Try to extract JSON from markdown code blocks
     json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     if json_match:
         text = json_match.group(1)
 
     candidates = [text]
 
-    # Find the outermost { ... }
     depth, start_idx = 0, None
     for i, ch in enumerate(text):
         if ch == '{':
@@ -162,8 +146,28 @@ def parse_action(response_text: str) -> dict:
         except (json.JSONDecodeError, TypeError, ValueError):
             continue
 
-    print(f"  WARNING: Could not parse JSON, using fallback. Raw: {text[:100]}")
+    print(f"WARNING: Could not parse JSON, using fallback. Raw: {text[:100]}", flush=True)
     return {"action_type": "finish", "email_id": None, "payload": {}}
+
+
+# ---------------------------------------------------------------------------
+# Structured validator printing helpers
+# ---------------------------------------------------------------------------
+
+def print_start(task_id: str):
+    print(f"[START] task={task_id}", flush=True)
+
+def print_step(task_id: str, step: int, reward: float, done: bool):
+    print(
+        f"[STEP] task={task_id} step={step} reward={reward:.4f} done={str(done).lower()}",
+        flush=True
+    )
+
+def print_end(task_id: str, score: float, steps: int):
+    print(
+        f"[END] task={task_id} score={score:.4f} steps={steps}",
+        flush=True
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -171,10 +175,7 @@ def parse_action(response_text: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def run_task(client, env, task_id: str) -> dict:
-    """Run inference on a single task and return the grade result."""
-    print(f"\n{'='*60}")
-    print(f"  Task: {task_id}")
-    print(f"{'='*60}")
+    print_start(task_id)
 
     try:
         from app.models import Action
@@ -189,7 +190,6 @@ def run_task(client, env, task_id: str) -> dict:
             step += 1
             user_prompt = build_user_prompt(obs)
 
-            # Default action if no API key or API fails
             raw = '{"action_type": "finish", "email_id": null, "payload": {}}'
 
             if client is not None and OPENAI_API_KEY:
@@ -206,7 +206,7 @@ def run_task(client, env, task_id: str) -> dict:
                     if response.choices:
                         raw = response.choices[0].message.content or raw
                 except Exception as api_err:
-                    print(f"  API error at step {step}: {api_err}")
+                    print(f"API error at step {step}: {api_err}", flush=True)
 
             action_dict = parse_action(raw)
             action = Action(
@@ -219,23 +219,22 @@ def run_task(client, env, task_id: str) -> dict:
                 ),
             )
 
-            print(f"  Step {step}: {action.action_type} on {action.email_id or '-'}", end="")
-
             step_result   = env.step(action)
             obs           = step_result.observation.model_dump()
             reward        = step_result.reward
             done          = step_result.done
             total_reward += reward.score
 
-            print(f"  -> reward: {reward.score:+.3f} | {reward.message[:60]}")
+            print_step(task_id, step, reward.score, done)
 
         grade = env.grade()
-        print(f"\n  Final score: {grade.get('score', 0):.4f}")
-        print(f"  {grade.get('summary', '')}")
+        final_score = float(grade.get("score", 0.0))
+        print_end(task_id, final_score, step)
         return grade
 
     except Exception as task_err:
-        print(f"  Task {task_id} error: {task_err}")
+        print(f"Task {task_id} error: {task_err}", flush=True)
+        print_end(task_id, 0.0, 0)
         return {"score": 0.0, "summary": f"Error: {task_err}"}
 
 
@@ -244,65 +243,56 @@ def run_task(client, env, task_id: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def main():
-    print("InboxPilot - Baseline Inference")
-    print(f"Model:    {MODEL_NAME}")
-    print(f"Base URL: {API_BASE_URL}")
+    print("InboxPilot - Baseline Inference", flush=True)
+    print(f"Model: {MODEL_NAME}", flush=True)
 
     if not OPENAI_API_KEY:
-        print("WARNING: OPENAI_API_KEY not set - running in env-validation / dry-run mode.")
-        print("Tasks will step with finish actions (score=0) to validate env structure.")
+        print("WARNING: OPENAI_API_KEY not set - running dry baseline mode.", flush=True)
 
-    # Import app modules - if they fail, report and exit cleanly (code 0)
     try:
         from app.env   import InboxPilotEnv
         from app.tasks import get_all_task_ids
     except Exception as import_err:
-        print(f"Failed to import app modules: {import_err}")
-        return  # exits main() cleanly
+        print(f"Failed to import app modules: {import_err}", flush=True)
+        return
 
-    # Build env
     try:
         env      = InboxPilotEnv()
         task_ids = get_all_task_ids()
     except Exception as setup_err:
-        print(f"Environment setup error: {setup_err}")
+        print(f"Environment setup error: {setup_err}", flush=True)
         return
 
-    # Optional OpenAI client
     client = None
     if OPENAI_API_KEY:
         try:
             from openai import OpenAI
             client = OpenAI(api_key=OPENAI_API_KEY, base_url=API_BASE_URL)
         except Exception as client_err:
-            print(f"Could not create OpenAI client: {client_err}")
+            print(f"Could not create OpenAI client: {client_err}", flush=True)
 
-    # Run tasks
     results = {}
     for tid in task_ids:
         try:
             results[tid] = run_task(client, env, tid)
         except Exception as e:
-            print(f"\n  Task {tid} failed: {e}")
+            print(f"Task {tid} failed: {e}", flush=True)
+            print_end(tid, 0.0, 0)
             results[tid] = {"score": 0.0, "summary": f"Error: {e}"}
 
-    # Summary
-    print("\n" + "=" * 60)
-    print("  BASELINE RESULTS SUMMARY")
-    print("=" * 60)
+    print("\n=== FINAL SUMMARY ===", flush=True)
     scores = []
     for tid, grade in results.items():
-        s = grade.get("score", 0)
+        s = float(grade.get("score", 0.0))
         scores.append(s)
-        print(f"  {tid:<40} {s:.4f}")
+        print(f"{tid}: {s:.4f}", flush=True)
     avg = sum(scores) / len(scores) if scores else 0.0
-    print(f"  {'AVERAGE':<40} {avg:.4f}")
-    print("=" * 60)
+    print(f"AVERAGE: {avg:.4f}", flush=True)
 
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(f"Unexpected error: {e}")
-    sys.exit(0)  # ALWAYS exit with code 0
+        print(f"Unexpected error: {e}", flush=True)
+    sys.exit(0)
