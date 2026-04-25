@@ -46,7 +46,7 @@ pip install -r requirements.txt
 # Run the server
 uvicorn app.main:app --host 0.0.0.0 --port 7860
 
-# Run tests (42 tests, <1s)
+# Run tests
 pytest tests/ -v
 
 # Run baseline inference
@@ -68,13 +68,60 @@ inboxpilot-openenv/
 │   ├── graders.py           # Deterministic answer-key graders
 │   ├── tasks.py             # JSON task loader
 │   └── utils.py             # Text normalization utilities
+├── agents/
+│   └── decision_agent.py    # baseline_agent and trained_agent policies
+├── environment/
+│   ├── email_env.py         # Multi-step decision workflow simulation
+│   └── calendar_env.py      # Time-slot scheduling with conflict checks
+├── utils/
+│   ├── scoring.py           # Priority conflict resolver scoring
+│   └── reward.py            # Upgraded reward shaping for decisions
+├── demo/
+│   └── compare_agents.py    # Before vs after agent comparison
 ├── data/tasks/              # 3 task definitions with answer keys
-├── tests/                   # 42 tests (env, graders, API)
+├── tests/                   # Automated tests (env, graders, API, demo)
 ├── inference.py             # Baseline LLM agent (OpenAI SDK)
 ├── openenv.yaml             # OpenEnv metadata
 ├── Dockerfile               # HF Spaces–ready container
 └── requirements.txt
 ```
+
+---
+
+## 🚀 New Upgrade Features
+
+InboxPilot now includes a simulation-first decision workflow layer in addition to the original OpenEnv benchmark interface.
+
+1. **Priority Conflict Resolver**
+- Scores each email using: `priority_score = urgency_weight + sender_weight + deadline_weight`
+- Sorts emails by score before processing
+- Produces human-readable reasons like: `Chosen because: high urgency + boss sender + near deadline`
+
+2. **Calendar Scheduling System**
+- Adds time-slot based scheduling actions
+- Supports `schedule_task`, `reschedule_task`, and `reject_task`
+- Detects occupied slots and applies conflict handling
+
+3. **Reward Function Upgrade**
+- Positive rewards for correct prioritization, urgent-first handling, conflict-free scheduling, and polite/context-aware replies
+- Negative rewards for ignoring high-priority emails, scheduling conflicts, poor tone, and acting on spam
+
+4. **Multi-Step Workflow Pipeline**
+- Executes: `email -> classify -> prioritize -> decide action -> (reply/schedule/ignore) -> update state`
+- Maintains state across the full chain for realistic decision-making
+
+5. **Before vs After Demo Mode**
+- Includes two modes:
+  - `baseline_agent` (weaker rule-based behavior)
+  - `trained_agent` (priority + scheduling + explainability)
+- Compares actions and rewards side-by-side in a single script
+
+6. **Lightweight Explainability**
+- Logs per-email action records as:
+  - `email_id`
+  - `action`
+  - `reason`
+- Designed for demo clarity and transparent decision traces
 
 ---
 
@@ -291,6 +338,19 @@ It prints:
 - Calendar scheduling outcomes and conflicts
 - Reward totals and improvement delta
 
+### Hardcoded Demo Scenario
+
+- Boss: **Submit report in 1 hour**
+- Client: **Schedule meeting tomorrow**
+- Friend: **Party tonight?**
+- Spam: **Win iPhone**
+
+Expected behavior:
+- Handle boss first
+- Schedule client meeting without conflicts
+- Reply casually/politely to friend
+- Ignore spam
+
 ---
 
 ## ✅ Validation
@@ -299,7 +359,7 @@ It prints:
 # OpenEnv validation
 openenv validate
 
-# Test suite (42 tests)
+# Test suite
 pytest tests/ -v
 
 # Docker build check
