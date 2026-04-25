@@ -1,280 +1,328 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 import gradio as gr
 
 
 DEFAULT_EMAILS: list[dict[str, str]] = [
-    {"sender": "Boss", "text": "Need report by EOD", "true_priority": "High"},
-    {"sender": "HR", "text": "Submit documents", "true_priority": "Medium"},
-    {"sender": "Friend", "text": "Party tonight?", "true_priority": "Low"},
+    {"sender": "Bank", "text": "Your OTP is 839201. Do not share this verification code."},
+    {"sender": "Boss", "text": "Need report by EOD. Client meeting tomorrow morning."},
+    {"sender": "Friend", "text": "Can you help me? My family is in trouble and I need urgent help."},
+    {"sender": "Friend", "text": "Party tonight? Weekend hangout plans?"},
+    {"sender": "HR", "text": "Please submit onboarding documents and policy form."},
+    {"sender": "Promo", "text": "You win free lottery rewards. Click here now."},
+]
+
+CRITICAL_PATTERNS = [
+    "otp",
+    "verification code",
+    "transaction",
+    "account alert",
+    "password",
+    "login",
+    "bank",
+]
+URGENT_WORK_PATTERNS = [
+    "deadline",
+    "eod",
+    "urgent",
+    "asap",
+    "client meeting",
+    "meeting",
+    "client",
+    "report",
+]
+EMOTIONAL_PATTERNS = [
+    "need help",
+    "emergency",
+    "family problem",
+    "loan",
+    "medical",
+    "urgent help",
+    "family is in trouble",
+]
+TASK_PATTERNS = [
+    "submit",
+    "update",
+    "review",
+    "document",
+    "form",
+    "policy",
+]
+CASUAL_PATTERNS = [
+    "party",
+    "hangout",
+    "weekend",
+    "hello",
+    "hey",
+]
+SPAM_PATTERNS = [
+    "win",
+    "lottery",
+    "free",
+    "click",
+    "click here",
 ]
 
 
-def normalize_priority(value: str) -> str:
-    v = str(value).strip().lower()
-    if v == "high":
-        return "High"
-    if v == "medium":
-        return "Medium"
-    if v == "low":
-        return "Low"
-    return "Low"
+def _normalize(text: str) -> str:
+    return re.sub(r"\s+", " ", str(text).strip().lower())
 
 
-def _inbox_row(email: dict[str, str], idx: int) -> str:
-    sender = email.get("sender", "Unknown")
-    text = email.get("text", "")
-    truth = normalize_priority(email.get("true_priority", "Low"))
-    urgency_icon = "⚠️" if truth == "High" else "🗂️" if truth == "Medium" else "💬"
-    return (
-        f"**📩 Email {idx}**  \n"
-        f"- Sender: **{sender}**  \n"
-        f"- Message: {text}  \n"
-        f"- True Priority: {urgency_icon} **{truth}**"
-    )
+def _contains_any(text: str, patterns: list[str]) -> bool:
+    return any(p in text for p in patterns)
 
 
-def format_inbox_markdown(emails: list[dict[str, str]], title: str) -> str:
-    rows = [f"### {title}"]
-    for i, email in enumerate(emails, start=1):
-        rows.append(_inbox_row(email, i))
-    return "\n\n".join(rows)
-
-
-def _parse_uploaded_json(file: Any) -> Any:
-    if file is None:
-        return None
-    if isinstance(file, bytes):
-        return json.loads(file.decode("utf-8"))
-    if isinstance(file, str):
-        try:
-            with open(file, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except OSError:
-            return json.loads(file)
-    if isinstance(file, dict):
-        path = file.get("path")
-        if isinstance(path, str) and path:
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
-    if hasattr(file, "read"):
-        content = file.read()
-        if isinstance(content, bytes):
-            return json.loads(content.decode("utf-8"))
-        return json.loads(str(content))
-    raise ValueError("Unsupported uploaded file format")
-
-
-def load_data(file: Any) -> tuple[list[dict[str, str]], str]:
-    if file is None:
-        return DEFAULT_EMAILS, "Using default dataset."
+def load_data(file_obj: Any) -> tuple[list[dict[str, str]], str]:
+    if file_obj is None:
+        return DEFAULT_EMAILS, "Using default dataset"
 
     try:
-        payload = _parse_uploaded_json(file)
+        if isinstance(file_obj, bytes):
+            payload = json.loads(file_obj.decode("utf-8"))
+        elif isinstance(file_obj, str):
+            try:
+                with open(file_obj, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+            except OSError:
+                payload = json.loads(file_obj)
+        elif isinstance(file_obj, dict) and isinstance(file_obj.get("path"), str):
+            with open(file_obj["path"], "r", encoding="utf-8") as f:
+                payload = json.load(f)
+        elif hasattr(file_obj, "read"):
+            raw = file_obj.read()
+            if isinstance(raw, bytes):
+                payload = json.loads(raw.decode("utf-8"))
+            else:
+                payload = json.loads(str(raw))
+        else:
+            return DEFAULT_EMAILS, "Unsupported upload format, fallback to default dataset"
     except Exception:
-        return DEFAULT_EMAILS, "Invalid JSON upload. Falling back to default dataset."
+        return DEFAULT_EMAILS, "Invalid JSON, fallback to default dataset"
 
-    if not isinstance(payload, list) or not payload:
-        return DEFAULT_EMAILS, "Uploaded JSON is empty/invalid. Falling back to default dataset."
+    if not isinstance(payload, list) or len(payload) == 0:
+        return DEFAULT_EMAILS, "Empty/invalid JSON list, fallback to default dataset"
 
-    validated: list[dict[str, str]] = []
+    cleaned: list[dict[str, str]] = []
     for item in payload:
         if not isinstance(item, dict):
-            return DEFAULT_EMAILS, "JSON format mismatch. Falling back to default dataset."
-
+            return DEFAULT_EMAILS, "Invalid item format, fallback to default dataset"
         sender = str(item.get("sender", "")).strip()
         text = str(item.get("text", "")).strip()
-        truth = normalize_priority(str(item.get("true_priority", "")).strip())
-
         if not sender or not text:
-            return DEFAULT_EMAILS, "Missing sender/text fields. Falling back to default dataset."
+            return DEFAULT_EMAILS, "Missing sender/text values, fallback to default dataset"
+        cleaned.append({"sender": sender, "text": text})
 
-        validated.append(
-            {
-                "sender": sender,
-                "text": text,
-                "true_priority": truth,
-            }
-        )
-
-    return validated, "Using uploaded custom dataset."
+    return cleaned, "Using uploaded dataset"
 
 
-def _untrained_priority(email: dict[str, str], idx: int) -> str:
-    sender = email.get("sender", "").lower()
-    text = email.get("text", "").lower()
+def detect_intent(text: str) -> tuple[str, dict[str, bool], list[str]]:
+    t = _normalize(text)
+    flags = {
+        "critical": _contains_any(t, CRITICAL_PATTERNS),
+        "urgent_work": _contains_any(t, URGENT_WORK_PATTERNS),
+        "emotional": _contains_any(t, EMOTIONAL_PATTERNS),
+        "task": _contains_any(t, TASK_PATTERNS),
+        "casual": _contains_any(t, CASUAL_PATTERNS),
+        "spam": _contains_any(t, SPAM_PATTERNS),
+    }
 
-    # Intentionally weak deterministic logic for clear contrast.
-    if "friend" in sender or "party" in text:
-        return "High"
-    if "boss" in sender or "deadline" in text or "eod" in text:
-        return "Medium"
-    cycle = ["Low", "High", "Medium"]
-    return cycle[idx % len(cycle)]
+    reasons: list[str] = []
+    if flags["critical"]:
+        reasons.append("Detected OTP/banking/security content")
+    if flags["urgent_work"]:
+        reasons.append("Detected urgent work/deadline context")
+    if flags["emotional"]:
+        reasons.append("Detected emotional distress/help request")
+    if flags["task"]:
+        reasons.append("Detected task/admin request")
+    if flags["casual"]:
+        reasons.append("Detected casual conversation")
+    if flags["spam"]:
+        reasons.append("Detected spam/scam language")
 
+    if flags["critical"]:
+        primary = "critical"
+    elif flags["urgent_work"]:
+        primary = "urgent_work"
+    elif flags["emotional"]:
+        primary = "emotional"
+    elif flags["task"]:
+        primary = "task"
+    elif flags["spam"]:
+        primary = "spam"
+    elif flags["casual"]:
+        primary = "casual"
+    else:
+        primary = "task"
 
-def _trained_priority(email: dict[str, str]) -> str:
-    sender = email.get("sender", "").lower()
-    text = email.get("text", "").lower()
-
-    high_signals = ["boss", "ceo", "urgent", "asap", "deadline", "eod", "report"]
-    medium_signals = ["hr", "documents", "submit", "policy", "form", "admin"]
-
-    if any(sig in sender or sig in text for sig in high_signals):
-        return "High"
-    if any(sig in sender or sig in text for sig in medium_signals):
-        return "Medium"
-    return "Low"
-
-
-def _untrained_reply(email: dict[str, str], priority: str) -> str:
-    sender = email.get("sender", "there")
-    return f"ok {sender}, noted. maybe later. [{priority}]"
-
-
-def _trained_reply(email: dict[str, str], priority: str) -> str:
-    sender = email.get("sender", "there")
-    if priority == "High":
-        return f"Thank you, {sender}. This is urgent and I will prioritize it immediately."
-    if priority == "Medium":
-        return f"Thank you, {sender}. I have logged this and will complete it in the next work cycle."
-    return f"Thanks, {sender}. I have received this and will follow up appropriately."
-
-
-def calculate_accuracy(predictions: list[str], true_labels: list[str]) -> float:
-    if not true_labels:
-        return 0.0
-    correct = sum(
-        1
-        for pred, truth in zip(predictions, true_labels)
-        if normalize_priority(pred) == normalize_priority(truth)
-    )
-    return correct / len(true_labels)
+    return primary, flags, reasons
 
 
-def _build_outputs(emails: list[dict[str, str]], source_note: str, triggered_by: str) -> tuple[str, str, str, str, str]:
-    truths = [normalize_priority(e.get("true_priority", "Low")) for e in emails]
+def score_email(text: str) -> tuple[int, str, dict[str, bool], list[str]]:
+    primary_intent, flags, reasons = detect_intent(text)
 
-    untrained_preds: list[str] = []
-    trained_preds: list[str] = []
-    untrained_lines = ["### ❌ Untrained Output"]
-    trained_lines = ["### ✅ Trained Output"]
-    reasoning_lines = ["### 🧠 Agent Reasoning"]
+    if flags["critical"]:
+        return 10, primary_intent, flags, reasons
 
-    for i, email in enumerate(emails, start=1):
-        sender = email.get("sender", "Unknown")
-        text = email.get("text", "")
-        truth = normalize_priority(email.get("true_priority", "Low"))
+    score = 0
+    if flags["urgent_work"]:
+        score += 5
+    if flags["emotional"]:
+        score += 4
+    if flags["task"]:
+        score += 2
+    if flags["casual"]:
+        score -= 2
+    if flags["spam"]:
+        score -= 3
 
-        untrained_priority = _untrained_priority(email, i - 1)
-        trained_priority = _trained_priority(email)
-        untrained_preds.append(untrained_priority)
-        trained_preds.append(trained_priority)
+    return score, primary_intent, flags, reasons
 
-        untrained_lines.append(
-            f"**Email {i} ({sender})**  \n"
-            f"- Predicted Priority: **{untrained_priority}**  \n"
-            f"- True Priority: {truth}  \n"
-            f"- Reply: *{_untrained_reply(email, untrained_priority)}*"
-        )
 
-        trained_lines.append(
-            f"**Email {i} ({sender})**  \n"
-            f"- Predicted Priority: **{trained_priority}**  \n"
-            f"- True Priority: {truth}  \n"
-            f"- Reply: *{_trained_reply(email, trained_priority)}*"
-        )
+def map_priority(score: int, sender: str, flags: dict[str, bool]) -> str:
+    s = _normalize(sender)
 
-        if trained_priority == "High":
-            reasoning = "deadline/urgency or critical sender detected"
-        elif trained_priority == "Medium":
-            reasoning = "administrative or operational intent detected"
+    if flags["critical"]:
+        return "HIGH"
+    if "hr" in s and not flags["urgent_work"] and not flags["critical"] and not flags["spam"]:
+        return "MEDIUM"
+    if "friend" in s and flags["casual"] and not flags["emotional"]:
+        return "LOW"
+    if flags["emotional"] and score < 4:
+        return "MEDIUM"
+
+    if score >= 8:
+        return "HIGH"
+    if score >= 4:
+        return "MEDIUM"
+    return "LOW"
+
+
+def _reply(priority: str, sender: str) -> str:
+    if priority == "HIGH":
+        return f"Hi {sender}, I understand the urgency of this message and will take immediate action."
+    if priority == "MEDIUM":
+        return f"Hi {sender}, I’ve noted this and will address it shortly."
+    return f"Hi {sender}, thanks for the update. I will review it when possible."
+
+
+def run_untrained(file_obj: Any) -> str:
+    emails, source_note = load_data(file_obj)
+    lines = [f"## ❌ Untrained Output", f"**Source:** {source_note}", "---"]
+
+    for idx, e in enumerate(emails, start=1):
+        sender = e["sender"]
+        text = _normalize(e["text"])
+
+        if any(k in text for k in ["otp", "bank", "transaction", "urgent", "deadline", "eod"]):
+            pred = "LOW"
+        elif any(k in text for k in ["party", "weekend", "hangout"]):
+            pred = "HIGH"
         else:
-            reasoning = "casual or low-urgency context detected"
-        reasoning_lines.append(f"- **{sender}** -> **{trained_priority}** ({reasoning})")
+            pred = ["LOW", "MEDIUM", "HIGH"][(idx + len(text)) % 3]
 
-    untrained_acc = calculate_accuracy(untrained_preds, truths)
-    trained_acc = calculate_accuracy(trained_preds, truths)
+        reply = "ok noted maybe later"
 
-    task_untrained = "Low" if untrained_acc < 0.6 else "Medium"
-    task_trained = "High" if trained_acc >= 0.8 else "Medium"
+        lines.append(
+            f"### Email {idx} ({sender})\n"
+            f"Predicted Priority: **{pred}**\n"
+            f"Reply: {reply}\n"
+            f"Text: {e['text'][:180]}{'...' if len(e['text']) > 180 else ''}\n"
+            "---"
+        )
 
-    metrics_table = (
-        "### 📊 Performance Metrics\n\n"
-        "| Metric | Untrained ❌ | Trained ✅ |\n"
-        "| --- | ---: | ---: |\n"
-        f"| Priority Accuracy | {untrained_acc:.0%} | {trained_acc:.0%} |\n"
-        "| Reply Quality | Poor | Professional |\n"
-        f"| Task Completion | {task_untrained} | {task_trained} |"
+    return "\n".join(lines)
+
+
+def run_trained(file_obj: Any) -> str:
+    emails, source_note = load_data(file_obj)
+    lines = [f"## ✅ Trained Output", f"**Source:** {source_note}", "---"]
+
+    high_count = 0
+    med_count = 0
+    low_count = 0
+
+    for e in emails:
+        sender = e["sender"]
+        text = e["text"]
+
+        score, intent, flags, reasons = score_email(text)
+        priority = map_priority(score, sender, flags)
+
+        if priority == "HIGH":
+            high_count += 1
+        elif priority == "MEDIUM":
+            med_count += 1
+        else:
+            low_count += 1
+
+        reason_text = "; ".join(reasons) if reasons else "No strong signal detected"
+
+        lines.append(
+            f"### 📩 {sender}\n"
+            f"Priority: **{priority}**\n"
+            f"Score: **{score}**\n"
+            f"Reply: {_reply(priority, sender)}\n"
+            f"Reason: {reason_text}\n"
+            "---"
+        )
+
+    lines.extend(
+        [
+            "## 📊 Distribution Summary",
+            f"- Total emails processed: **{len(emails)}**",
+            f"- HIGH: **{high_count}**",
+            f"- MEDIUM: **{med_count}**",
+            f"- LOW: **{low_count}**",
+        ]
     )
 
-    active_inbox = (
-        format_inbox_markdown(emails, "📩 Active Inbox")
-        + "\n\n"
-        + "### ✅ Run Info\n"
-        + f"- Data Source: {source_note}\n"
-        + f"- Triggered By: {triggered_by}\n"
-        + f"- Emails Evaluated: {len(emails)}"
-    )
-
-    return (
-        active_inbox,
-        "\n\n".join(untrained_lines),
-        "\n\n".join(trained_lines),
-        metrics_table,
-        "\n".join(reasoning_lines),
-    )
+    return "\n".join(lines)
 
 
-def run_untrained(data: Any) -> tuple[str, str, str, str, str]:
-    emails, note = load_data(data)
-    return _build_outputs(emails, note, "❌ Run Untrained Agent")
+def _inbox_preview(emails: list[dict[str, str]]) -> str:
+    parts = ["## 📬 Inbox Preview", "---"]
+    for i, e in enumerate(emails, start=1):
+        preview = e["text"][:160] + ("..." if len(e["text"]) > 160 else "")
+        parts.append(f"**{i}. {e['sender']}**\n{preview}\n---")
+    return "\n".join(parts)
 
 
-def run_trained(data: Any) -> tuple[str, str, str, str, str]:
-    emails, note = load_data(data)
-    return _build_outputs(emails, note, "✅ Run Trained Agent")
-
-
-with gr.Blocks(title="📧 InboxPilot – AI Email Assistant") as demo:
+with gr.Blocks(title="📧 InboxPilot – AI Email Assistant", theme=gr.themes.Soft()) as demo:
     gr.Markdown("# 📧 InboxPilot – AI Email Assistant")
-    gr.Markdown("InboxPilot triages emails, predicts priority, drafts replies, and shows measurable quality differences between untrained and trained agent behavior.")
+    gr.Markdown("Context-aware email prioritization demo with clearly different untrained vs trained behavior.")
+    gr.Markdown("---")
+    gr.Markdown(_inbox_preview(DEFAULT_EMAILS))
 
-    gr.Markdown(format_inbox_markdown(DEFAULT_EMAILS, "🧾 Default Inbox"))
+    gr.Markdown("## 📂 Upload Custom Email JSON")
+    data_input = gr.File(label="Upload JSON ([{'sender':'...','text':'...'}])", file_types=[".json"], type="binary")
 
-    gr.Markdown("## 📂 Custom Input")
-    upload = gr.File(label="Upload Custom Email JSON", file_types=[".json"], type="binary")
-
-    gr.Markdown("## 🤖 Agent Controls")
+    gr.Markdown("## ⚙️ Controls")
     with gr.Row():
-        run_untrained_btn = gr.Button("❌ Run Untrained Agent", variant="secondary")
-        run_trained_btn = gr.Button("✅ Run Trained Agent", variant="primary")
+        btn_untrained = gr.Button("❌ Run Untrained Agent", variant="secondary")
+        btn_trained = gr.Button("✅ Run Trained Agent", variant="primary")
 
-    active_inbox_box = gr.Markdown("### 📩 Active Inbox\nClick an agent button to evaluate default or uploaded JSON data.")
-
-    gr.Markdown("## 📊 Results Comparison")
+    gr.Markdown("## 📊 Results")
     with gr.Row():
-        untrained_box = gr.Markdown("### ❌ Untrained Output\nNo run yet.")
-        trained_box = gr.Markdown("### ✅ Trained Output\nNo run yet.")
+        untrained_output = gr.Markdown("Untrained output will appear here.")
+        trained_output = gr.Markdown("Trained output will appear here.")
 
-    metrics_box = gr.Markdown("### 📊 Performance Metrics\nNo run yet.")
-    reasoning_box = gr.Markdown("### 🧠 Agent Reasoning\nNo run yet.")
-
-    run_untrained_btn.click(
+    btn_untrained.click(
         fn=run_untrained,
-        inputs=[upload],
-        outputs=[active_inbox_box, untrained_box, trained_box, metrics_box, reasoning_box],
+        inputs=[data_input],
+        outputs=[untrained_output],
     )
 
-    run_trained_btn.click(
+    btn_trained.click(
         fn=run_trained,
-        inputs=[upload],
-        outputs=[active_inbox_box, untrained_box, trained_box, metrics_box, reasoning_box],
+        inputs=[data_input],
+        outputs=[trained_output],
     )
 
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860)
+    demo.launch()
