@@ -239,8 +239,8 @@ def run_trained(data: Any) -> tuple[str, str, str, str, str]:
     return _build_outputs(emails, note, "✅ Run Trained Agent")
 
 
-with gr.Blocks(title="📧 InboxPilot - AI Email Assistant") as demo:
-    gr.Markdown("# 📧 InboxPilot - AI Email Assistant")
+with gr.Blocks(title="📧 InboxPilot – AI Email Assistant") as demo:
+    gr.Markdown("# 📧 InboxPilot – AI Email Assistant")
     gr.Markdown("InboxPilot triages emails, predicts priority, drafts replies, and shows measurable quality differences between untrained and trained agent behavior.")
 
     gr.Markdown(format_inbox_markdown(DEFAULT_EMAILS, "🧾 Default Inbox"))
