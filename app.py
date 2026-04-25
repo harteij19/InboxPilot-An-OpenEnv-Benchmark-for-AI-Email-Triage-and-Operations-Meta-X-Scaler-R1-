@@ -212,7 +212,7 @@ def _reply(priority: str, sender: str) -> str:
 
 def run_untrained(file_obj: Any) -> str:
     emails, source_note = load_data(file_obj)
-    lines = [f"## ❌ Untrained Output", f"**Source:** {source_note}", "---"]
+    lines = ["## ❌ Untrained Output", f"**Source:** {source_note}", "---"]
 
     for idx, e in enumerate(emails, start=1):
         sender = e["sender"]
@@ -228,10 +228,11 @@ def run_untrained(file_obj: Any) -> str:
         reply = "ok noted maybe later"
 
         lines.append(
-            f"### Email {idx} ({sender})\n"
-            f"Predicted Priority: **{pred}**\n"
-            f"Reply: {reply}\n"
-            f"Text: {e['text'][:180]}{'...' if len(e['text']) > 180 else ''}\n"
+            f"📩 **{sender}**\n"
+            f"Priority: **{pred}**\n"
+            f"Score: **N/A**\n\n"
+            f"Reply: {reply}\n\n"
+            f"Message: {e['text'][:180]}{'...' if len(e['text']) > 180 else ''}\n"
             "---"
         )
 
@@ -240,7 +241,7 @@ def run_untrained(file_obj: Any) -> str:
 
 def run_trained(file_obj: Any) -> str:
     emails, source_note = load_data(file_obj)
-    lines = [f"## ✅ Trained Output", f"**Source:** {source_note}", "---"]
+    lines = ["## ✅ Trained Output", f"**Source:** {source_note}", "---"]
 
     high_count = 0
     med_count = 0
@@ -263,10 +264,10 @@ def run_trained(file_obj: Any) -> str:
         reason_text = "; ".join(reasons) if reasons else "No strong signal detected"
 
         lines.append(
-            f"### 📩 {sender}\n"
+            f"📩 **{sender}**\n"
             f"Priority: **{priority}**\n"
             f"Score: **{score}**\n"
-            f"Reply: {_reply(priority, sender)}\n"
+            f"\nReply: {_reply(priority, sender)}\n"
             f"Reason: {reason_text}\n"
             "---"
         )
@@ -285,31 +286,36 @@ def run_trained(file_obj: Any) -> str:
 
 
 def _inbox_preview(emails: list[dict[str, str]]) -> str:
-    parts = ["## 📬 Inbox Preview", "---"]
-    for i, e in enumerate(emails, start=1):
+    parts = ["## 📬 Inbox Preview", ""]
+    for e in emails:
         preview = e["text"][:160] + ("..." if len(e["text"]) > 160 else "")
-        parts.append(f"**{i}. {e['sender']}**\n{preview}\n---")
+        parts.append(f"📩 **{e['sender']}**\n**Message:** {preview}\n\n---\n")
     return "\n".join(parts)
 
 
 with gr.Blocks(title="📧 InboxPilot – AI Email Assistant", theme=gr.themes.Soft()) as demo:
     gr.Markdown("# 📧 InboxPilot – AI Email Assistant")
-    gr.Markdown("Context-aware email prioritization demo with clearly different untrained vs trained behavior.")
+    gr.Markdown("*Context-aware email prioritization demo*")
     gr.Markdown("---")
+
     gr.Markdown(_inbox_preview(DEFAULT_EMAILS))
+    gr.Markdown("---")
 
-    gr.Markdown("## 📂 Upload Custom Email JSON")
-    data_input = gr.File(label="Upload JSON ([{'sender':'...','text':'...'}])", file_types=[".json"], type="binary")
+    gr.Markdown("## ⚙️ Run Agent")
+    gr.Markdown("Upload a JSON list like: [{'sender':'...','text':'...'}]")
+    data_input = gr.File(label="Email Dataset JSON", file_types=[".json"], type="binary")
 
-    gr.Markdown("## ⚙️ Controls")
     with gr.Row():
         btn_untrained = gr.Button("❌ Run Untrained Agent", variant="secondary")
         btn_trained = gr.Button("✅ Run Trained Agent", variant="primary")
 
+    gr.Markdown("---")
     gr.Markdown("## 📊 Results")
     with gr.Row():
-        untrained_output = gr.Markdown("Untrained output will appear here.")
-        trained_output = gr.Markdown("Trained output will appear here.")
+        with gr.Column(scale=1):
+            untrained_output = gr.Markdown("Untrained output will appear here.")
+        with gr.Column(scale=1):
+            trained_output = gr.Markdown("Trained output will appear here.")
 
     btn_untrained.click(
         fn=run_untrained,
