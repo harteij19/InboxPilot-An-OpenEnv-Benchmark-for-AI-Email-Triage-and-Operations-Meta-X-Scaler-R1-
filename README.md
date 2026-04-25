@@ -270,6 +270,29 @@ Features: robust JSON parsing with nested payload support, safe fallback actions
 
 ---
 
+## 🧠 Decision Workflow Demo (Before vs After)
+
+Run the simulation-first assistant upgrade demo:
+
+```bash
+python demo/compare_agents.py
+```
+
+This compares:
+
+- `baseline_agent` (weak policy)
+- `trained_agent` (priority + calendar + explainability)
+
+It prints:
+
+- Step-by-step workflow (`email -> classify -> prioritize -> action`)
+- Priority conflict resolver reasoning
+- Action explainability logs (`email_id`, `action`, `reason`)
+- Calendar scheduling outcomes and conflicts
+- Reward totals and improvement delta
+
+---
+
 ## ✅ Validation
 
 ```bash

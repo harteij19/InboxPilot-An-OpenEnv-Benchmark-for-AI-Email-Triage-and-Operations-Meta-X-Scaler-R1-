@@ -37,4 +37,4 @@ inboxpilot-server = "server.app:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["app*", "server*"]
+include = ["app*", "server*", "agents*", "environment*", "utils*", "demo*"]
